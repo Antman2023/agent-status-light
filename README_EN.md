@@ -25,6 +25,8 @@ AgentStatusLight puts that state on the desktop with three simple lights: red me
 
 On first launch, the floating light appears in the center of the screen and stays on top of other windows. After you move it, the app will remember that position the next time it starts.
 
+Edge snapping is enabled by default. Drag the floating light near or beyond an edge of the screen working area and release it to snap and collapse it into a compact light bar. On the top or bottom edge, the red, yellow, and green segments run from left to right and the bar can be dragged horizontally along the edge. On the left or right edge, they run from top to bottom and the bar can be dragged vertically. Moving along an edge keeps the compact bar; drag it toward the screen interior to restore the full light, or disable edge snapping from the right-click menu.
+
 > Avoid placing it under `C:\Program Files\`, because that location may require administrator permissions and can prevent the app from saving settings or status data.
 
 ## Status Lights
@@ -45,6 +47,7 @@ Right-click the floating light to:
 - Open notification settings.
 - Open sound settings.
 - Toggle the breathing light effect.
+- Toggle edge snapping.
 - Switch light layout: horizontal or vertical.
 - Open Claude Code status light setup.
 - Manually switch to red, yellow, or green.

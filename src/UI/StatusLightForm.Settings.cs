@@ -16,7 +16,9 @@ namespace WorkStatusLight
             {
                 currentSkin = "system";
                 currentLightOrientation = LightOrientationHorizontalValue;
+                dockedEdge = DockEdgeNoneValue;
                 breathingLightEnabled = true;
+                edgeSnapEnabled = true;
                 return;
             }
 
@@ -26,7 +28,13 @@ namespace WorkStatusLight
                 SettingsPayload settings = serializer.Deserialize<SettingsPayload>(File.ReadAllText(settingsPath, Encoding.UTF8));
                 currentSkin = NormalizeSkin(settings == null ? null : settings.skin);
                 currentLightOrientation = NormalizeLightOrientation(settings == null ? null : settings.lightOrientation);
+                dockedEdge = NormalizeDockEdge(settings == null ? null : settings.windowDockEdge);
                 breathingLightEnabled = settings == null || !settings.breathingLightEnabled.HasValue || settings.breathingLightEnabled.Value;
+                edgeSnapEnabled = settings == null || !settings.edgeSnapEnabled.HasValue || settings.edgeSnapEnabled.Value;
+                if (!edgeSnapEnabled)
+                {
+                    dockedEdge = DockEdgeNoneValue;
+                }
                 windowsNativeEnabled = settings != null && settings.windowsNativeEnabled;
                 windowsNativeNotifyConfirm = settings != null && settings.windowsNativeNotifyConfirm;
                 windowsNativeNotifyDone = settings == null || !settings.windowsNativeNotifyDone.HasValue || settings.windowsNativeNotifyDone.Value;
@@ -65,7 +73,9 @@ namespace WorkStatusLight
             {
                 currentSkin = "system";
                 currentLightOrientation = LightOrientationHorizontalValue;
+                dockedEdge = DockEdgeNoneValue;
                 breathingLightEnabled = true;
+                edgeSnapEnabled = true;
                 windowsNativeEnabled = false;
                 windowsNativeNotifyConfirm = false;
                 windowsNativeNotifyDone = true;
@@ -107,6 +117,7 @@ namespace WorkStatusLight
                     skin = currentSkin,
                     lightOrientation = currentLightOrientation,
                     breathingLightEnabled = breathingLightEnabled,
+                    edgeSnapEnabled = edgeSnapEnabled,
                     windowsNativeEnabled = windowsNativeEnabled,
                     windowsNativeNotifyConfirm = windowsNativeNotifyConfirm,
                     windowsNativeNotifyDone = windowsNativeNotifyDone,
@@ -135,6 +146,7 @@ namespace WorkStatusLight
                     workingColor = ColorToHex(workingLightColor),
                     doneColor = ColorToHex(doneLightColor),
                     waitingColor = waitingLightColor.HasValue ? ColorToHex(waitingLightColor.Value) : null,
+                    windowDockEdge = dockedEdge,
                     windowX = Location.X,
                     windowY = Location.Y
                 }), Encoding.UTF8);

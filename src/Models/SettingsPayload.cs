@@ -6,6 +6,7 @@ namespace WorkStatusLight
         public string skin { get; set; }
         public string lightOrientation { get; set; }
         public bool? breathingLightEnabled { get; set; }
+        public bool? edgeSnapEnabled { get; set; }
         public bool windowsNativeEnabled { get; set; }
         public bool windowsNativeNotifyConfirm { get; set; }
         public bool? windowsNativeNotifyDone { get; set; }
@@ -34,6 +35,7 @@ namespace WorkStatusLight
         public string workingColor { get; set; }
         public string doneColor { get; set; }
         public string waitingColor { get; set; }
+        public string windowDockEdge { get; set; }
         public int? windowX { get; set; }
         public int? windowY { get; set; }
     }

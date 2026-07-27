@@ -16,6 +16,12 @@ namespace WorkStatusLight
             g.Clear(Color.Transparent);
             g.ScaleTransform(UiScale, UiScale);
             SkinPalette palette = GetSkinPalette();
+            if (IsDockedToEdge())
+            {
+                DrawDockedWindow(g, palette);
+                return;
+            }
+
             bool vertical = IsVerticalLightOrientation();
             RectangleF bodyBounds = vertical ? new RectangleF(19, 9, 58, 144) : new RectangleF(9, 19, 144, 58);
 
@@ -44,6 +50,60 @@ namespace WorkStatusLight
             DrawLight(g, 20, 32, 32, confirmLightColor, currentConfirmCount > 0, currentConfirmCount, palette, inactiveColor, breathingIntensity);
             DrawLight(g, 65, 32, 32, workingLightColor, currentWorkingCount > 0, currentWorkingCount, palette, inactiveColor, breathingIntensity);
             DrawLight(g, 110, 32, 32, doneLightColor, currentDoneCount > 0 && doneFlashVisible, currentDoneCount, palette, inactiveColor, doneIntensity);
+        }
+
+        private void DrawDockedWindow(Graphics g, SkinPalette palette)
+        {
+            bool vertical = IsDockedToVerticalEdge();
+            Color inactiveColor = GetInactiveLightColor(palette);
+            float breathingIntensity = GetBreathingIntensity();
+            float doneIntensity = IsDoneFlashRunning() ? 1f : breathingIntensity;
+
+            if (vertical)
+            {
+                float x = IsDockedToRightEdge() ? (ClientSize.Width / UiScale) - 15f : 1f;
+                DrawCompactLight(g, new RectangleF(x, 1, 14, 34), confirmLightColor, currentConfirmCount > 0, palette, inactiveColor, breathingIntensity, true);
+                DrawCompactLight(g, new RectangleF(x, 37, 14, 34), workingLightColor, currentWorkingCount > 0, palette, inactiveColor, breathingIntensity, true);
+                DrawCompactLight(g, new RectangleF(x, 73, 14, 34), doneLightColor, currentDoneCount > 0 && doneFlashVisible, palette, inactiveColor, doneIntensity, true);
+                return;
+            }
+
+            DrawCompactLight(g, new RectangleF(1, 1, 34, 14), confirmLightColor, currentConfirmCount > 0, palette, inactiveColor, breathingIntensity, false);
+            DrawCompactLight(g, new RectangleF(37, 1, 34, 14), workingLightColor, currentWorkingCount > 0, palette, inactiveColor, breathingIntensity, false);
+            DrawCompactLight(g, new RectangleF(73, 1, 34, 14), doneLightColor, currentDoneCount > 0 && doneFlashVisible, palette, inactiveColor, doneIntensity, false);
+        }
+
+
+        private static void DrawCompactLight(
+            Graphics g,
+            RectangleF bounds,
+            Color color,
+            bool active,
+            SkinPalette palette,
+            Color inactiveColor,
+            float intensity,
+            bool vertical)
+        {
+            intensity = ClampLightIntensity(intensity);
+            Color baseColor = active ? ScaleLightColor(color, intensity) : inactiveColor;
+
+            using (GraphicsPath path = RoundPath(bounds, 6))
+            using (var brush = new LinearGradientBrush(bounds, baseColor, palette.LensShadow, vertical ? 0f : 90f))
+            using (var borderPen = new Pen(palette.Rim, 1))
+            {
+                g.FillPath(brush, path);
+                g.DrawPath(borderPen, path);
+            }
+
+            RectangleF shine = vertical
+                ? new RectangleF(bounds.X + 3, bounds.Y + 4, 3, bounds.Height - 8)
+                : new RectangleF(bounds.X + 4, bounds.Y + 3, bounds.Width - 8, 3);
+            int shineAlpha = active ? ScaleAlpha(120, intensity) : palette.InactiveShineAlpha;
+            using (GraphicsPath shinePath = RoundPath(shine, 1.5f))
+            using (var shineBrush = new SolidBrush(Color.FromArgb(shineAlpha, palette.Shine)))
+            {
+                g.FillPath(shineBrush, shinePath);
+            }
         }
 
 
@@ -114,9 +174,17 @@ namespace WorkStatusLight
         {
             if (hasSavedWindowLocation && IsWindowLocationVisible(savedWindowLocation, size))
             {
+                if (IsDockedToEdge())
+                {
+                    Rectangle savedBounds = new Rectangle(savedWindowLocation, size);
+                    Screen screen = Screen.FromRectangle(savedBounds);
+                    return GetDockedLocation(savedBounds, size, screen.WorkingArea, dockedEdge);
+                }
+
                 return savedWindowLocation;
             }
 
+            dockedEdge = DockEdgeNoneValue;
             return CenterInPrimaryScreen(size);
         }
 

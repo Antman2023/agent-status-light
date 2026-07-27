@@ -13,6 +13,7 @@ namespace WorkStatusLight
         public const string LightOrientation = "\u6307\u793a\u706f\u65b9\u5411";
         public const string LightOrientationHorizontal = "\u6a2a\u5411";
         public const string LightOrientationVertical = "\u7eb5\u5411";
+        public const string EdgeSnap = "\u8fb9\u7f18\u5438\u9644";
         public const string BarkEnabled = "\u542f\u7528 Bark";
         public const string WindowsNativeNotificationTab = "Windows";
         public const string WindowsNativeEnabled = "\u542f\u7528 Windows \u901a\u77e5";

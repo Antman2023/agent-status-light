@@ -12,8 +12,15 @@ namespace WorkStatusLight
         private const float UiScale = 0.88f;
         private const string LightOrientationHorizontalValue = "horizontal";
         private const string LightOrientationVerticalValue = "vertical";
+        private const string DockEdgeNoneValue = "none";
+        private const string DockEdgeTopValue = "top";
+        private const string DockEdgeBottomValue = "bottom";
+        private const string DockEdgeLeftValue = "left";
+        private const string DockEdgeRightValue = "right";
         private static readonly Size HorizontalLightWindowSize = new Size(ScaleDimension(167), ScaleDimension(96));
         private static readonly Size VerticalLightWindowSize = new Size(ScaleDimension(96), ScaleDimension(167));
+        private static readonly Size DockedHorizontalWindowSize = new Size(ScaleDimension(108), ScaleDimension(16));
+        private static readonly Size DockedVerticalWindowSize = new Size(ScaleDimension(16), ScaleDimension(108));
         private const int StrongBusySamplesAfterDone = 3;
         private const int QuietSamplesBeforeDone = 5;
         private const int QuietBeforeDoneSeconds = 10;
@@ -45,6 +52,7 @@ namespace WorkStatusLight
         private readonly ToolStripMenuItem lightOrientationHorizontalItem;
         private readonly ToolStripMenuItem lightOrientationVerticalItem;
         private readonly ToolStripMenuItem breathingLightItem;
+        private readonly ToolStripMenuItem edgeSnapItem;
         private readonly ToolStripMenuItem aboutItem;
 
         private string currentState = "waiting";
@@ -52,6 +60,7 @@ namespace WorkStatusLight
         private string currentMessage = "Agent is idle and waiting for a new task";
         private string currentSkin = "system";
         private string currentLightOrientation = LightOrientationHorizontalValue;
+        private string dockedEdge = DockEdgeNoneValue;
         private string barkServerUrl = "https://api.day.app";
         private string barkDeviceKey = String.Empty;
         private string pushPlusToken = String.Empty;
@@ -83,6 +92,7 @@ namespace WorkStatusLight
         private bool telegramNotifyDone = true;
         private bool soundEnabled;
         private bool breathingLightEnabled = true;
+        private bool edgeSnapEnabled = true;
         private bool autoDetect;
         private bool dragging;
         private bool hasSeenBusy;
@@ -91,6 +101,8 @@ namespace WorkStatusLight
         private bool notificationsReady;
         private Point dragStartMouse;
         private Point dragStartWindow;
+        private float dragAnchorRatioX;
+        private float dragAnchorRatioY;
         private DateTime lastBusyAt = DateTime.MinValue;
         private DateTime lastExternalForegroundAt = DateTime.MinValue;
         private DateTime doneAnnouncedAt = DateTime.MinValue;
@@ -147,6 +159,7 @@ namespace WorkStatusLight
             var notificationSettingsItem = new ToolStripMenuItem(T.NotificationSettings);
             var colorSettingsItem = new ToolStripMenuItem(T.ColorSettings);
             breathingLightItem = new ToolStripMenuItem(T.BreathingLightEffect);
+            edgeSnapItem = new ToolStripMenuItem(T.EdgeSnap);
             var soundSettingsItem = new ToolStripMenuItem(T.SoundSettings);
             var claudeHooksItem = new ToolStripMenuItem(T.ClaudeHooks);
             var configureClaudeHooksItem = new ToolStripMenuItem(T.ConfigureClaudeHooks);
@@ -161,6 +174,7 @@ namespace WorkStatusLight
             {
                 UpdateRestoreAutoDetectMenu();
                 UpdateBreathingLightMenuCheck();
+                UpdateEdgeSnapMenuCheck();
             };
             restoreAutoItem.Click += delegate { RestoreAutoDetect(); };
             skinSystemItem.Click += delegate { SetSkin("system"); };
@@ -172,6 +186,7 @@ namespace WorkStatusLight
             notificationSettingsItem.Click += delegate { ShowNotificationSettingsDialog(); };
             colorSettingsItem.Click += delegate { ShowColorSettingsDialog(); };
             breathingLightItem.Click += delegate { ToggleBreathingLightEffect(); };
+            edgeSnapItem.Click += delegate { ToggleEdgeSnap(); };
             soundSettingsItem.Click += delegate { ShowSoundSettingsDialog(); };
             configureClaudeHooksItem.Click += delegate { ConfigureClaudeHooksForCurrentUser(); };
             removeClaudeHooksItem.Click += delegate { RemoveClaudeHooksForCurrentUser(); };
@@ -191,6 +206,7 @@ namespace WorkStatusLight
             UpdateSkinMenuChecks();
             UpdateLightOrientationMenuChecks();
             UpdateBreathingLightMenuCheck();
+            UpdateEdgeSnapMenuCheck();
             UpdateRestoreAutoDetectMenu();
 
             menu.Items.Add(restoreAutoItem);
@@ -199,6 +215,7 @@ namespace WorkStatusLight
             menu.Items.Add(notificationSettingsItem);
             menu.Items.Add(soundSettingsItem);
             menu.Items.Add(breathingLightItem);
+            menu.Items.Add(edgeSnapItem);
             menu.Items.Add(lightOrientationItem);
             menu.Items.Add(claudeHooksItem);
             menu.Items.Add(new ToolStripSeparator());
@@ -282,7 +299,14 @@ namespace WorkStatusLight
         {
             base.OnShown(e);
             Logger.Write("Form shown at " + Location.X + "," + Location.Y + " handle=" + Handle);
-            RenderLayeredWindow();
+            if (IsDockedToEdge())
+            {
+                EnsureDockedWindowOnScreen();
+            }
+            else
+            {
+                RenderLayeredWindow();
+            }
             ApplyTopMost();
             BeginUpdateCheck();
         }
@@ -313,6 +337,8 @@ namespace WorkStatusLight
         protected override void WndProc(ref Message m)
         {
             const int WmGetMinMaxInfo = 0x0024;
+            const int WmSettingChange = 0x001A;
+            const int WmDisplayChange = 0x007E;
             if (m.Msg == WmGetMinMaxInfo)
             {
                 base.WndProc(ref m);
@@ -324,6 +350,10 @@ namespace WorkStatusLight
             }
 
             base.WndProc(ref m);
+            if ((m.Msg == WmDisplayChange || m.Msg == WmSettingChange) && IsDockedToEdge())
+            {
+                BeginInvoke(new MethodInvoker(EnsureDockedWindowOnScreen));
+            }
         }
 
         protected override void OnMouseDown(MouseEventArgs e)
@@ -334,6 +364,8 @@ namespace WorkStatusLight
             dragging = true;
             dragStartMouse = Cursor.Position;
             dragStartWindow = Location;
+            dragAnchorRatioX = ClientSize.Width <= 0 ? 0.5f : (float)e.X / ClientSize.Width;
+            dragAnchorRatioY = ClientSize.Height <= 0 ? 0.5f : (float)e.Y / ClientSize.Height;
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
@@ -342,6 +374,24 @@ namespace WorkStatusLight
             if (!dragging) return;
 
             Point mouse = Cursor.Position;
+            if (IsDockedToEdge())
+            {
+                if (!HasDragStarted(mouse))
+                {
+                    return;
+                }
+
+                if (ShouldUndockForDrag(mouse))
+                {
+                    UndockForDrag(mouse);
+                }
+                else
+                {
+                    MoveAlongDockedEdge(mouse);
+                    return;
+                }
+            }
+
             Location = new Point(dragStartWindow.X + mouse.X - dragStartMouse.X, dragStartWindow.Y + mouse.Y - dragStartMouse.Y);
         }
 
@@ -351,6 +401,10 @@ namespace WorkStatusLight
             if (e.Button == MouseButtons.Left)
             {
                 dragging = false;
+                if (!IsDockedToEdge())
+                {
+                    SnapToNearestScreenEdge();
+                }
                 SaveWindowLocation();
                 ApplyTopMost();
             }
@@ -437,6 +491,15 @@ namespace WorkStatusLight
 
         private Size GetLightWindowSize()
         {
+            if (IsDockedToHorizontalEdge())
+            {
+                return DockedHorizontalWindowSize;
+            }
+            if (IsDockedToVerticalEdge())
+            {
+                return DockedVerticalWindowSize;
+            }
+
             return IsVerticalLightOrientation() ? VerticalLightWindowSize : HorizontalLightWindowSize;
         }
 

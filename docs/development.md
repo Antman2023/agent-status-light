@@ -15,7 +15,7 @@
 
 ```text
 data\status.json          当前状态
-data\settings.json        皮肤、指示灯方向、颜色、声音、通知配置、窗口位置
+data\settings.json        皮肤、指示灯方向、颜色、声音、通知配置、窗口位置和吸附边缘
 data\claude-events.jsonl  Claude Code CLI hooks 状态事件
 logs\agent-status-light.log
 ```
